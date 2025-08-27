@@ -79,7 +79,7 @@ if generate:
                 })
 
     total_days = (end_date - start_date).days + 1
-    minutes_per_day = 6 * 60  # 6 hours per day
+    minutes_per_day = 7 * 60  # 7 hours per day
     schedule = {start_date + datetime.timedelta(days=i): [] for i in range(total_days)}
 
     current_day = start_date
@@ -143,4 +143,5 @@ if st.session_state.schedule:
         file_name="study_schedule.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
