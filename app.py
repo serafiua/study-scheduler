@@ -1,129 +1,109 @@
 import streamlit as st
-from datetime import datetime, timedelta
+import datetime
+import re
+import time
 
-# -----------------
-# Data structures
-# -----------------
-class Article:
-    def __init__(self, title, duration):
-        self.title = title
-        self.duration = duration  # in minutes
+st.set_page_config(page_title="Study Scheduler", layout="wide")
 
-class Module:
-    def __init__(self, title):
-        self.title = title
-        self.articles = []
+st.title("📚 Study Scheduler")
+st.write("Plan your study tasks into daily to-do lists.")
 
-class Class:
-    def __init__(self, title):
-        self.title = title
-        self.modules = []
-
-# -----------------
-# App logic
-# -----------------
-def distribute_articles(classes, start_date, end_date, daily_limit=360):
-    # Flatten all articles into a list preserving hierarchy
-    tasks = []
-    for c in classes:
-        for m in c.modules:
-            for a in m.articles:
-                tasks.append((c.title, m.title, a.title, a.duration))
-
-    # Generate date range
-    num_days = (end_date - start_date).days + 1
-    days = [start_date + timedelta(days=i) for i in range(num_days)]
-
-    # Allocate articles per day with 6h/day max
-    plan = {day: [] for day in days}
-    day_idx = 0
-    used_today = 0
-
-    for task in tasks:
-        c_title, m_title, a_title, duration = task
-
-        # If doesn't fit in today's remaining time, move to next day
-        while day_idx < len(days):
-            if used_today + duration <= daily_limit:
-                plan[days[day_idx]].append(task)
-                used_today += duration
-                break
-            else:
-                # Move to next day
-                day_idx += 1
-                used_today = 0
-        else:
-            # If out of days, put remaining into last day (overflow)
-            plan[days[-1]].append(task)
-
-    return plan
-
-# -----------------
-# Streamlit UI
-# -----------------
-st.title("📅 Study Scheduler (6h/day)")
-
-# Input: Date range
+# --- Step 1: Set Date Range ---
 st.header("1. Set Date Range")
 col1, col2 = st.columns(2)
 with col1:
-    start_date = st.date_input("Start date", datetime.today())
+    start_date = st.date_input("Start Date", datetime.date.today())
 with col2:
-    end_date = st.date_input("End date", datetime.today() + timedelta(days=6))
+    end_date = st.date_input("End Date", datetime.date.today() + datetime.timedelta(days=7))
 
-# Classes input
+# --- Step 2: Add Classes, Modules, and Articles ---
 st.header("2. Add Classes and Modules")
 
 if "classes" not in st.session_state:
     st.session_state.classes = []
 
-new_class = st.text_input("Add a new class title")
+class_name = st.text_input("Enter Class Name")
 if st.button("➕ Add Class"):
-    if new_class.strip():
-        st.session_state.classes.append(Class(new_class.strip()))
+    if class_name:
+        st.session_state.classes.append({"name": class_name, "modules": []})
 
-# Display all classes
-for idx_c, c in enumerate(st.session_state.classes):
-    st.subheader(f"📘 Class: {c.title}")
+# Show classes with modules & articles
+for class_idx, class_item in enumerate(st.session_state.classes):
+    with st.expander(f"📘 Class: {class_item['name']}", expanded=False):
+        module_name = st.text_input(f"Add Module for {class_item['name']}", key=f"module_{class_idx}")
+        if st.button(f"➕ Add Module to {class_item['name']}", key=f"add_module_{class_idx}"):
+            if module_name:
+                class_item["modules"].append({"name": module_name, "articles": []})
 
-    # Add module to this class
-    new_module = st.text_input(f"Add module to {c.title}", key=f"module_{idx_c}")
-    if st.button(f"➕ Add Module to {c.title}", key=f"add_module_{idx_c}"):
-        if new_module.strip():
-            c.modules.append(Module(new_module.strip()))
+        for module_idx, module_item in enumerate(class_item["modules"]):
+            with st.expander(f"📂 Module: {module_item['name']}", expanded=False):
+                article_input = st.text_area(
+                    f"Add Articles for {module_item['name']} (one per line, e.g. `Article Title 10`)", 
+                    key=f"articles_{class_idx}_{module_idx}"
+                )
+                if st.button(f"➕ Save Articles for {module_item['name']}", key=f"save_articles_{class_idx}_{module_idx}"):
+                    articles = []
+                    for line in article_input.splitlines():
+                        match = re.match(r"(.+?)\s+(\d+)$", line.strip())
+                        if match:
+                            title, duration = match.groups()
+                            articles.append({"title": title.strip(), "duration": int(duration)})
+                            # ✅ Temporary feedback message 
+                            msg_placeholder = st.empty()
+                            msg_placeholder.success(f'Article "{title.strip()}" with duration {duration} minutes has been successfully added!')
+                            time.sleep(3)
+                            msg_placeholder.empty()
+                    module_item["articles"].extend(articles)
 
-    # Display modules
-    for idx_m, m in enumerate(c.modules):
-        st.markdown(f"**📂 Module: {m.title}**")
+# --- Step 3: Generate To-Do List ---
+st.header("3. Generate To-Do List")
 
-        # Add article
-        new_article = st.text_input(f"Article title,duration(min) for {m.title}", key=f"art_{idx_c}_{idx_m}")
-        if st.button(f"➕ Add Article to {m.title}", key=f"add_art_{idx_c}_{idx_m}"):
-            if "," in new_article:
-                title, dur = new_article.split(",", 1)
-                try:
-                    duration = int(dur.strip())
-                    m.articles.append(Article(title.strip(), duration))
-                except ValueError:
-                    st.error("Duration must be an integer (minutes)")
+generate = st.button("📅 Generate Schedule")
 
-        # Show articles
-        for a in m.articles:
-            st.write(f"📝 {a.title} ({a.duration} min)")
+if generate:
+    # Collect all tasks
+    all_tasks = []
+    for class_item in st.session_state.classes:
+        for module_item in class_item["modules"]:
+            for article in module_item["articles"]:
+                all_tasks.append({
+                    "class": class_item["name"],
+                    "module": module_item["name"],
+                    "title": article["title"],
+                    "duration": article["duration"]
+                })
 
-# Generate plan
-if st.button("✅ Generate Study Plan"):
-    if not st.session_state.classes:
-        st.warning("Please add at least one class with modules and articles!")
-    else:
-        plan = distribute_articles(st.session_state.classes, start_date, end_date)
+    total_days = (end_date - start_date).days + 1
+    minutes_per_day = 6 * 60  # 6 hours per day
+    schedule = {start_date + datetime.timedelta(days=i): [] for i in range(total_days)}
 
-        st.header("📆 Your Daily Study Plan")
-        for day, tasks in plan.items():
+    current_day = start_date
+    used_minutes = 0
+
+    for task in all_tasks:
+        if used_minutes + task["duration"] > minutes_per_day:
+            current_day += datetime.timedelta(days=1)
+            used_minutes = 0
+        if current_day > end_date:
+            st.error("⚠️ The schedule cannot fit within the given date range. Try extending the dates.")
+            break
+        schedule[current_day].append(task)
+        used_minutes += task["duration"]
+
+    # Display Schedule
+    st.subheader("📌 Your Daily To-Do List")
+    for day, tasks in schedule.items():
+        total_minutes = sum(t["duration"] for t in tasks)
+        total_hours = total_minutes / 60
+        if tasks:
+            expander_title = f"📅 **{day.strftime('%A, %d %B %Y')}** ({total_minutes} min (~{total_hours:.1f} hr))"
+        else:
+            expander_title = f"📅 **{day.strftime('%A, %d %B %Y')}** (0 min)"
+
+        with st.expander(expander_title):
             if tasks:
-                total = sum(t[3] for t in tasks)
-                st.subheader(f"{day} - Total {total} min (~{total//60}h {total%60}m)")
                 for t in tasks:
-                    st.write(f"- {t[0]} → {t[1]} → {t[2]} ({t[3]} min)")
+                    st.write(f"✅ **{t['class']} → {t['module']} → {t['title']}** ({t['duration']} min)")
             else:
-                st.subheader(f"{day} - Free Day 🎉")
+                st.write("🎉 Free day!")
+
