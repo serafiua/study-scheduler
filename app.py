@@ -60,7 +60,6 @@ for class_idx, class_item in enumerate(st.session_state.classes):
 # --- Step 3: Generate To-Do List ---
 st.header("3. Generate To-Do List")
 
-# Default schedule kosong biar ga error kalau belum generate
 if "schedule" not in st.session_state:
     st.session_state.schedule = {}
 
@@ -96,7 +95,7 @@ if generate:
         schedule[current_day].append(task)
         used_minutes += task["duration"]
 
-    # Simpan ke session state
+    # save to session state
     st.session_state.schedule = schedule
 
     # Display Schedule
@@ -144,3 +143,4 @@ if st.session_state.schedule:
         file_name="study_schedule.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
