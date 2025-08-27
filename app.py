@@ -6,11 +6,15 @@ import pandas as pd
 from io import BytesIO
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 
 st.set_page_config(page_title="Study Scheduler", layout="wide")
 
-st.title("📚 Study Scheduler")
-st.write("Plan your study tasks into daily to-do lists.")
+# --- Step 0: Initialize session state ---
+if "classes" not in st.session_state:
+    st.session_state.classes = []
+if "schedule" not in st.session_state:
+    st.session_state.schedule = {}
 
 # --- Step 1: Set Date Range ---
 st.header("1. Set Date Range")
@@ -20,19 +24,13 @@ with col1:
 with col2:
     end_date = st.date_input("End Date", datetime.date.today() + datetime.timedelta(days=7))
 
-# --- Step 2: Add Classes, Modules, and Articles ---
+# --- Step 2: Add Classes and Modules ---
 st.header("2. Add Classes and Modules")
-
-if "classes" not in st.session_state:
-    st.session_state.classes = []
-
-# Add class
 class_name = st.text_input("Enter Class Name")
 if st.button("➕ Add Class"):
     if class_name:
         st.session_state.classes.append({"name": class_name, "modules": []})
 
-# Show classes with modules & articles
 for class_idx, class_item in enumerate(st.session_state.classes):
     with st.expander(f"📘 Class: {class_item['name']}", expanded=False):
         module_name = st.text_input(f"Add Module for {class_item['name']}", key=f"module_{class_idx}")
@@ -69,10 +67,6 @@ for class_idx, class_item in enumerate(st.session_state.classes):
 
 # --- Step 3: Generate To-Do List ---
 st.header("3. Generate To-Do List")
-
-if "schedule" not in st.session_state:
-    st.session_state.schedule = {}
-
 generate = st.button("📅 Generate Schedule")
 
 if generate:
@@ -106,16 +100,11 @@ if generate:
 
     st.session_state.schedule = schedule
 
-    # Display Schedule
     st.subheader("📌 Your Daily To-Do List")
     for day, tasks in schedule.items():
         total_minutes = sum(t["duration"] for t in tasks)
         total_hours = total_minutes / 60
-        if tasks:
-            expander_title = f"📅 **{day.strftime('%A, %d %B %Y')}** ({total_minutes} min (~{total_hours:.1f} hr))"
-        else:
-            expander_title = f"📅 **{day.strftime('%A, %d %B %Y')}** (0 min)"
-
+        expander_title = f"📅 **{day.strftime('%A, %d %B %Y')}** ({total_minutes} min (~{total_hours:.1f} hr))" if tasks else f"📅 **{day.strftime('%A, %d %B %Y')}** (0 min)"
         with st.expander(expander_title):
             if tasks:
                 for t in tasks:
@@ -123,8 +112,9 @@ if generate:
             else:
                 st.write("🎉 Free day!")
 
-# --- Step 4: Export to Excel with merged cells per date & border ---
+# --- Step 4: Export Excel ---
 if st.session_state.schedule:
+    st.header("4. Export Schedule to Excel")
     export_data = []
     for day, tasks in st.session_state.schedule.items():
         for t in tasks:
@@ -147,15 +137,13 @@ if st.session_state.schedule:
     wb = load_workbook(output)
     ws = wb["Schedule"]
 
-    # Border style
     thin_border = Border(left=Side(style='thin'), right=Side(style='thin'),
                          top=Side(style='thin'), bottom=Side(style='thin'))
 
-    # Merge function
     def merge_column_in_rows(ws, col_letter, start_row, end_row):
         if end_row > start_row:
             ws.merge_cells(f"{col_letter}{start_row}:{col_letter}{end_row}")
-            ws[f"{col_letter}{start_row}"].alignment = Alignment(vertical="center", horizontal="center")
+            ws[f"{col_letter}{start_row}"].alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
     def merge_column(ws, col_letter, start_row, end_row):
         row = start_row
@@ -166,7 +154,6 @@ if st.session_state.schedule:
             merge_column_in_rows(ws, col_letter, merge_start, row)
             row += 1
 
-    # Merge per tanggal
     current_row = 2
     while current_row <= ws.max_row:
         date_value = ws[f"A{current_row}"].value
@@ -181,12 +168,16 @@ if st.session_state.schedule:
 
         current_row += 1
 
-    # Apply border to all cells
-    for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+    # Apply border + alignment + wrap_text, skip header row
+    for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
         for cell in row:
             cell.border = thin_border
+            col_letter = get_column_letter(cell.column)
+            if col_letter == "D":  # Article
+                cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+            else:
+                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-    # Save to BytesIO
     output_merged = BytesIO()
     wb.save(output_merged)
     excel_data = output_merged.getvalue()
