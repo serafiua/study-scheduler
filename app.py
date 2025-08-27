@@ -126,7 +126,7 @@ if st.session_state.schedule:
                 "Module": t["module"],
                 "Article": t["title"],
                 "Duration (min)": t["duration"],
-                "Status": "☐"  # default unchecked box
+                "Status (✅)": "☐"  # default unchecked box
             })
 
     df_export = pd.DataFrame(export_data)
@@ -143,5 +143,6 @@ if st.session_state.schedule:
         file_name="study_schedule.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
 
