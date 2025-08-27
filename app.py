@@ -25,9 +25,15 @@ if "classes" not in st.session_state:
     st.session_state.classes = []
 
 class_name = st.text_input("Enter Class Name")
+
 if st.button("➕ Add Class"):
     if class_name:
-        st.session_state.classes.append({"name": class_name, "modules": []})
+        # check if class already exists
+        if any(c["name"].lower() == class_name.lower() for c in st.session_state.classes):
+            st.error(f'Class "{class_name}" has already been added!')
+        else:
+            st.session_state.classes.append({"name": class_name, "modules": []})
+            st.success(f'Class "{class_name}" has been successfully added!')
 
 # Show classes with modules & articles
 for class_idx, class_item in enumerate(st.session_state.classes):
@@ -35,7 +41,13 @@ for class_idx, class_item in enumerate(st.session_state.classes):
         module_name = st.text_input(f"Add Module for {class_item['name']}", key=f"module_{class_idx}")
         if st.button(f"➕ Add Module to {class_item['name']}", key=f"add_module_{class_idx}"):
             if module_name:
-                class_item["modules"].append({"name": module_name, "articles": []})
+                # check if module already exists in this class
+                if any(m["name"].lower() == module_name.lower() for m in class_item["modules"]):
+                    st.error(f'Module "{module_name}" has already been added to class "{class_item["name"]}"!')
+                else:
+                    class_item["modules"].append({"name": module_name, "articles": []})
+                    st.success(f'Module "{module_name}" has been successfully added to class "{class_item["name"]}"!')
+
 
         for module_idx, module_item in enumerate(class_item["modules"]):
             with st.expander(f"📂 Module: {module_item['name']}", expanded=False):
@@ -44,18 +56,19 @@ for class_idx, class_item in enumerate(st.session_state.classes):
                     key=f"articles_{class_idx}_{module_idx}"
                 )
                 if st.button(f"➕ Add Articles to {module_item['name']}", key=f"save_articles_{class_idx}_{module_idx}"):
-                    articles = []
+                    articles_to_add = []
                     for line in article_input.splitlines():
                         match = re.match(r"(.+?)\s+(\d+)$", line.strip())
                         if match:
                             title, duration = match.groups()
-                            articles.append({"title": title.strip(), "duration": int(duration)})
-                            # ✅ Temporary feedback message 
-                            msg_placeholder = st.empty()
-                            msg_placeholder.success(f'Article "{title.strip()}" with duration {duration} minutes has been successfully added!')
-                            time.sleep(3)
-                            msg_placeholder.empty()
-                    module_item["articles"].extend(articles)
+                            # check if article already exists
+                            if any(a["title"].lower() == title.strip().lower() for a in module_item["articles"]):
+                                st.error(f'Article "{title.strip()}" has already been added to module "{module_item["name"]}"!')
+                            else:
+                                articles_to_add.append({"title": title.strip(), "duration": int(duration)})
+                                st.success(f'Article "{title.strip()}" ({duration} min) has been successfully added!')
+                
+                    module_item["articles"].extend(articles_to_add)
 
 # --- Step 3: Generate To-Do List ---
 st.header("3. Generate To-Do List")
@@ -143,6 +156,7 @@ if st.session_state.schedule:
         file_name="study_schedule.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
 
 
