@@ -2,6 +2,8 @@ import streamlit as st
 import datetime
 import re
 import time
+import pandas as pd
+from io import BytesIO
 
 st.set_page_config(page_title="Study Scheduler", layout="wide")
 
@@ -37,11 +39,11 @@ for class_idx, class_item in enumerate(st.session_state.classes):
 
         for module_idx, module_item in enumerate(class_item["modules"]):
             with st.expander(f"📂 Module: {module_item['name']}", expanded=False):
-                article_input = st.text_area(
-                    f"Add Articles for {module_item['name']} (one per line, e.g. `Article Title 10`)", 
+                article_input = st.text_input(
+                    f"Add Articles and Duration (min) for {module_item['name']} (one per line, e.g. `Article Title 10`)", 
                     key=f"articles_{class_idx}_{module_idx}"
                 )
-                if st.button(f"➕ Save Articles for {module_item['name']}", key=f"save_articles_{class_idx}_{module_idx}"):
+                if st.button(f"➕ Add Articles to {module_item['name']}", key=f"save_articles_{class_idx}_{module_idx}"):
                     articles = []
                     for line in article_input.splitlines():
                         match = re.match(r"(.+?)\s+(\d+)$", line.strip())
@@ -57,6 +59,10 @@ for class_idx, class_item in enumerate(st.session_state.classes):
 
 # --- Step 3: Generate To-Do List ---
 st.header("3. Generate To-Do List")
+
+# Default schedule kosong biar ga error kalau belum generate
+if "schedule" not in st.session_state:
+    st.session_state.schedule = {}
 
 generate = st.button("📅 Generate Schedule")
 
@@ -90,6 +96,9 @@ if generate:
         schedule[current_day].append(task)
         used_minutes += task["duration"]
 
+    # Simpan ke session state
+    st.session_state.schedule = schedule
+
     # Display Schedule
     st.subheader("📌 Your Daily To-Do List")
     for day, tasks in schedule.items():
@@ -107,3 +116,31 @@ if generate:
             else:
                 st.write("🎉 Free day!")
 
+# --- Step 4: Export to Excel ---
+if st.session_state.schedule:
+    export_data = []
+    for day, tasks in st.session_state.schedule.items():
+        for t in tasks:
+            export_data.append({
+                "Date": day.strftime("%Y-%m-%d"),
+                "Class": t["class"],
+                "Module": t["module"],
+                "Article": t["title"],
+                "Duration (min)": t["duration"],
+                "Status": "☐"  # default unchecked box
+            })
+
+    df_export = pd.DataFrame(export_data)
+
+    # Save to Excel in memory
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df_export.to_excel(writer, index=False, sheet_name="Schedule")
+    excel_data = output.getvalue()
+
+    st.download_button(
+        label="📥 Download Schedule (Excel)",
+        data=excel_data,
+        file_name="study_schedule.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
