@@ -120,6 +120,7 @@ if st.session_state.schedule:
     st.header("4. Export Schedule to Excel")
     export_data = []
     for day, tasks in st.session_state.schedule.items():
+        total_minutes_day = sum(t["duration"] for t in tasks) if tasks else 0
         for t in tasks:
             export_data.append({
                 "Date": day.strftime("%Y-%m-%d"),
@@ -127,6 +128,17 @@ if st.session_state.schedule:
                 "Module": t["module"],
                 "Article": t["title"],
                 "Duration (min)": t["duration"],
+                "Total Duration (min/day)": total_minutes_day,  
+                "Status (✅)": "☐"
+            })
+        if not tasks:
+            export_data.append({
+                "Date": day.strftime("%Y-%m-%d"),
+                "Class": "-",
+                "Module": "-",
+                "Article": "🎉 Free day!",
+                "Duration (min)": 0,
+                "Total Duration (min/day)": 0,
                 "Status (✅)": "☐"
             })
 
@@ -165,18 +177,19 @@ if st.session_state.schedule:
             current_row += 1
         end_row = current_row
 
-        merge_column_in_rows(ws, "A", start_row, end_row)
-        merge_column(ws, "B", start_row, end_row)
-        merge_column(ws, "C", start_row, end_row)
+        merge_column_in_rows(ws, "A", start_row, end_row)  
+        merge_column(ws, "B", start_row, end_row)          
+        merge_column(ws, "C", start_row, end_row)          
+        merge_column_in_rows(ws, "F", start_row, end_row)  
 
         current_row += 1
 
-    # Apply border + alignment + wrap_text, skip header row
-    for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+        # Apply border + alignment + wrap_text for ALL rows (header + data)
+    for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
         for cell in row:
             cell.border = thin_border
             col_letter = get_column_letter(cell.column)
-            if col_letter == "D":  # Article
+            if col_letter == "D" and cell.row != 1:  
                 cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
             else:
                 cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -191,4 +204,5 @@ if st.session_state.schedule:
         file_name="study_schedule.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
