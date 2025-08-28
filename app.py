@@ -11,7 +11,7 @@ from openpyxl.utils import get_column_letter
 st.set_page_config(page_title="Study Scheduler", layout="wide")
 
 st.title("📚 Study Scheduler")
-st.write("Plan your study tasks into daily to-do lists with ~6h/day.")
+st.write("Track daily study tanpa Articles (hanya modul+durasi).")
 
 # --- Step 0: Initialize session state ---
 if "classes" not in st.session_state:
@@ -36,56 +36,51 @@ if st.button("➕ Add Class"):
 
 for class_idx, class_item in enumerate(st.session_state.classes):
     with st.expander(f"📘 Class: {class_item['name']}", expanded=False):
-        module_name = st.text_input(f"Add Module for {class_item['name']}", key=f"module_{class_idx}")
-        if st.button(f"➕ Add Module to {class_item['name']}", key=f"add_module_{class_idx}"):
-            if module_name:
-                class_item["modules"].append({"name": module_name, "articles": []})
+        module_input = st.text_area(
+            f"Add Modules and Duration (min) for {class_item['name']} (one per line, e.g. `Module Title 60`)",
+            key=f"module_{class_idx}"
+        )
+        if st.button(f"➕ Save Modules to {class_item['name']}", key=f"add_module_{class_idx}"):
+            msg_placeholder = st.empty()
+            added_any = False
 
-        for module_idx, module_item in enumerate(class_item["modules"]):
-            with st.expander(f"📂 Module: {module_item['name']}", expanded=False):
-                article_input = st.text_input(
-                    f"Add Articles and Duration (min) for {module_item['name']} (one per line, e.g. `Article Title 10`)", 
-                    key=f"articles_{class_idx}_{module_idx}"
-                )
-                if st.button(f"➕ Add Articles to {module_item['name']}", key=f"save_articles_{class_idx}_{module_idx}"):
-                    msg_placeholder = st.empty()
-                    added_any = False
+            for line in module_input.splitlines():
+                match = re.match(r"(.+?)\s+(\d+)$", line.strip())
+                if match:
+                    title, duration = match.groups()
+                    if any(m['name'].lower() == title.strip().lower() for m in class_item["modules"]):
+                        msg_placeholder.error(f'❌ Module "{title.strip()}" already exists!')
+                    else:
+                        class_item["modules"].append({"name": title.strip(), "duration": int(duration)})
+                        msg_placeholder.success(f'✅ Module "{title.strip()}" ({duration} min) added!')
+                        added_any = True
 
-                    for line in article_input.splitlines():
-                        match = re.match(r"(.+?)\s+(\d+)$", line.strip())
-                        if match:
-                            title, duration = match.groups()
-                            if any(a['title'].lower() == title.strip().lower() for a in module_item["articles"]):
-                                msg_placeholder.error(f'❌ Article "{title.strip()}" already exists!')
-                            else:
-                                module_item["articles"].append({"title": title.strip(), "duration": int(duration)})
-                                msg_placeholder.success(f'✅ Article "{title.strip()}" ({duration} min) has been successfully added!')
-                                added_any = True
+                    time.sleep(1.5)
+                    msg_placeholder.empty()
 
-                            time.sleep(3)
-                            msg_placeholder.empty()
+            if not added_any and not class_item["modules"]:
+                msg_placeholder.warning("No valid modules were added.")
 
-                    if not added_any and not module_item["articles"]:
-                        msg_placeholder.warning("No valid articles were added.")
+        # tampilkan modul yg udah ditambahkan
+        for module in class_item["modules"]:
+            st.write(f"📂 **{module['name']}** ({module['duration']} min)")
 
-# --- Step 3: Generate Schedule ---
-st.header("3. Generate Schedule")
-generate = st.button("📅 Generate")
+# --- Step 3: Generate To-Do List ---
+st.header("3. Generate To-Do List")
+generate = st.button("📅 Generate Schedule")
 
 if generate:
     all_tasks = []
     for class_item in st.session_state.classes:
         for module_item in class_item["modules"]:
-            for article in module_item["articles"]:
-                all_tasks.append({
-                    "class": class_item["name"],
-                    "module": module_item["name"],
-                    "title": article["title"],
-                    "duration": article["duration"]
-                })
+            all_tasks.append({
+                "class": class_item["name"],
+                "module": module_item["name"],
+                "duration": module_item["duration"]
+            })
 
     total_days = (end_date - start_date).days + 1
-    minutes_per_day = 7 * 60
+    minutes_per_day = 5.5 * 60
     schedule = {start_date + datetime.timedelta(days=i): [] for i in range(total_days)}
 
     current_day = start_date
@@ -111,7 +106,7 @@ if generate:
         with st.expander(expander_title):
             if tasks:
                 for t in tasks:
-                    st.write(f"✅ **{t['class']} → {t['module']} → {t['title']}** ({t['duration']} min)")
+                    st.write(f"✅ **{t['class']} → {t['module']}** ({t['duration']} min)")
             else:
                 st.write("🎉 Free day!")
 
@@ -120,29 +115,22 @@ if st.session_state.schedule:
     st.header("4. Export Schedule to Excel")
     export_data = []
     for day, tasks in st.session_state.schedule.items():
-        total_minutes_day = sum(t["duration"] for t in tasks) if tasks else 0
         for t in tasks:
             export_data.append({
                 "Date": day.strftime("%Y-%m-%d"),
                 "Class": t["class"],
                 "Module": t["module"],
-                "Article": t["title"],
                 "Duration (min)": t["duration"],
-                "Total Duration (min/day)": total_minutes_day,  
-                "Status (✅)": "☐"
-            })
-        if not tasks:
-            export_data.append({
-                "Date": day.strftime("%Y-%m-%d"),
-                "Class": "-",
-                "Module": "-",
-                "Article": "🎉 Free day!",
-                "Duration (min)": 0,
-                "Total Duration (min/day)": 0,
-                "Status (✅)": "☐"
             })
 
     df_export = pd.DataFrame(export_data)
+
+    # Hitung total durasi per hari
+    df_total = df_export.groupby("Date", as_index=False)["Duration (min)"].sum()
+    df_total = df_total.rename(columns={"Duration (min)": "Total Duration (min/day)"})
+
+    # Merge ke df utama
+    df_export = df_export.merge(df_total, on="Date", how="left")
 
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -177,19 +165,21 @@ if st.session_state.schedule:
             current_row += 1
         end_row = current_row
 
-        merge_column_in_rows(ws, "A", start_row, end_row)  
-        merge_column(ws, "B", start_row, end_row)          
-        merge_column(ws, "C", start_row, end_row)          
-        merge_column_in_rows(ws, "F", start_row, end_row)  
+        # merge Date, Class, Module
+        merge_column_in_rows(ws, "A", start_row, end_row)
+        merge_column(ws, "B", start_row, end_row)
+        merge_column(ws, "C", start_row, end_row)
+        # merge Total Duration (kolom E)
+        merge_column_in_rows(ws, "E", start_row, end_row)
 
         current_row += 1
 
-        # Apply border + alignment + wrap_text for ALL rows (header + data)
-    for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+    # Apply border + alignment + wrap_text, skip header row
+    for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
         for cell in row:
             cell.border = thin_border
             col_letter = get_column_letter(cell.column)
-            if col_letter == "D" and cell.row != 1:  
+            if col_letter == "C":  # Module
                 cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
             else:
                 cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -204,5 +194,3 @@ if st.session_state.schedule:
         file_name="study_schedule.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
-
