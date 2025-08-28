@@ -10,6 +10,9 @@ from openpyxl.utils import get_column_letter
 
 st.set_page_config(page_title="Study Scheduler", layout="wide")
 
+st.title("📚 Study Scheduler")
+st.write("Plan your study tasks into daily to-do lists with ~6h/day.")
+
 # --- Step 0: Initialize session state ---
 if "classes" not in st.session_state:
     st.session_state.classes = []
@@ -65,9 +68,9 @@ for class_idx, class_item in enumerate(st.session_state.classes):
                     if not added_any and not module_item["articles"]:
                         msg_placeholder.warning("No valid articles were added.")
 
-# --- Step 3: Generate To-Do List ---
-st.header("3. Generate To-Do List")
-generate = st.button("📅 Generate Schedule")
+# --- Step 3: Generate Schedule ---
+st.header("3. Generate Schedule")
+generate = st.button("📅 Generate")
 
 if generate:
     all_tasks = []
@@ -188,3 +191,4 @@ if st.session_state.schedule:
         file_name="study_schedule.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
