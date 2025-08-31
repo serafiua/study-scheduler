@@ -27,12 +27,10 @@ with st.sidebar:
     st.subheader("1. Set Date Range")
 
     start_date = st.date_input("Start Date", datetime.date.today(), key="start_date")
-    if "end_date" not in st.session_state:
-        st.session_state.end_date = datetime.date.today()
-    end_date = st.date_input("End Date", value=st.session_state.end_date, key="end_date")
+    end_date = st.date_input("End Date", key="end_date")
     if end_date < start_date:
         st.error("⚠️ End Date cannot be earlier than Start Date.")
-
+        
     # --- Step 2: Add Classes and Modules ---
     st.subheader("2. Add Classes and Modules")
 
@@ -311,4 +309,5 @@ with tab3:
 
     else:
         st.info("ℹ️ Generate schedule first in the sidebar.")
+
 
