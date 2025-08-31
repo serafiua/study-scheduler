@@ -221,7 +221,7 @@ with tab3:
             total_minutes_day = sum(t["duration"] for t in tasks) if tasks else 0
             for t in tasks:
                 export_data.append({
-                    "Date": day.strftime("%Y-%m-%d"),
+                    "Date": day.strftime("%d-%m-%Y"),
                     "Class": t["class"],
                     "Module": t["module"],
                     "Article": t["title"],
@@ -231,7 +231,7 @@ with tab3:
                 })
             if not tasks:
                 export_data.append({
-                    "Date": day.strftime("%Y-%m-%d"),
+                    "Date": day.strftime("%d-%m-%Y"),
                     "Class": "-",
                     "Module": "-",
                     "Article": "-",
@@ -314,6 +314,7 @@ with tab3:
 
     else:
         st.info("ℹ️ Generate schedule first in the sidebar.")
+
 
 
 
