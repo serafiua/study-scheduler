@@ -130,6 +130,11 @@ with st.sidebar:
     if end_date < start_date:
         generate = st.button("📅 Generate", disabled=True, use_container_width=True)
         st.warning("⚠️ Please choose an End Date that is the same or after the Start Date.")
+    elif not st.session_state.classes or all(
+        not class_item["modules"] or all(not module_item["articles"] for module_item in class_item["modules"])
+        for class_item in st.session_state.classes):
+        generate = st.button("📅 Generate", disabled=True, use_container_width=True)
+        st.info("Please add at least one class with modules and articles before generating the schedule.")
     else:
         generate = st.button("📅 Generate", use_container_width=True)
 
@@ -309,5 +314,6 @@ with tab3:
 
     else:
         st.info("ℹ️ Generate schedule first in the sidebar.")
+
 
 
