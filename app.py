@@ -19,58 +19,60 @@ if "classes" not in st.session_state:
 if "schedule" not in st.session_state:
     st.session_state.schedule = {}
 
-# --- Step 1: Set Date Range ---
-st.header("1. Set Date Range")
-col1, col2 = st.columns(2)
-with col1:
+# ========== SIDEBAR ==========
+with st.sidebar:
+    st.header("⚙️ Setup Schedule")
+
+    # --- Step 1: Set Date Range ---
+    st.subheader("1. Set Date Range")
     start_date = st.date_input("Start Date", datetime.date.today())
-with col2:
     end_date = st.date_input("End Date", datetime.date.today() + datetime.timedelta(days=7))
 
-# --- Step 2: Add Classes and Modules ---
-st.header("2. Add Classes and Modules")
-class_name = st.text_input("Enter Class Name")
-if st.button("➕ Add Class"):
-    if class_name:
-        st.session_state.classes.append({"name": class_name, "modules": []})
+    # --- Step 2: Add Classes and Modules ---
+    st.subheader("2. Add Classes and Modules")
+    class_name = st.text_input("Enter Class Name")
+    if st.button("➕ Add Class", use_container_width=True):
+        if class_name:
+            st.session_state.classes.append({"name": class_name, "modules": []})
 
-for class_idx, class_item in enumerate(st.session_state.classes):
-    with st.expander(f"📘 Class: {class_item['name']}", expanded=False):
-        module_name = st.text_input(f"Add Module for {class_item['name']}", key=f"module_{class_idx}")
-        if st.button(f"➕ Add Module to {class_item['name']}", key=f"add_module_{class_idx}"):
-            if module_name:
-                class_item["modules"].append({"name": module_name, "articles": []})
+    for class_idx, class_item in enumerate(st.session_state.classes):
+        with st.expander(f"📘 Class: {class_item['name']}", expanded=False):
+            module_name = st.text_input(f"Add Module for {class_item['name']}", key=f"module_{class_idx}")
+            if st.button(f"➕ Add Module to {class_item['name']}", key=f"add_module_{class_idx}", use_container_width=True):
+                if module_name:
+                    class_item["modules"].append({"name": module_name, "articles": []})
 
-        for module_idx, module_item in enumerate(class_item["modules"]):
-            with st.expander(f"📂 Module: {module_item['name']}", expanded=False):
-                article_input = st.text_input(
-                    f"Add Articles and Duration (min) for {module_item['name']} (one per line, e.g. `Article Title 10`)", 
-                    key=f"articles_{class_idx}_{module_idx}"
-                )
-                if st.button(f"➕ Add Articles to {module_item['name']}", key=f"save_articles_{class_idx}_{module_idx}"):
-                    msg_placeholder = st.empty()
-                    added_any = False
+            for module_idx, module_item in enumerate(class_item["modules"]):
+                with st.expander(f"📂 Module: {module_item['name']}", expanded=False):
+                    article_input = st.text_area(
+                        f"Add Articles + Duration (e.g. `Article Title 10`)", 
+                        key=f"articles_{class_idx}_{module_idx}"
+                    )
+                    if st.button(f"➕ Add Articles to {module_item['name']}", key=f"save_articles_{class_idx}_{module_idx}", use_container_width=True):
+                        msg_placeholder = st.empty()
+                        added_any = False
 
-                    for line in article_input.splitlines():
-                        match = re.match(r"(.+?)\s+(\d+)$", line.strip())
-                        if match:
-                            title, duration = match.groups()
-                            if any(a['title'].lower() == title.strip().lower() for a in module_item["articles"]):
-                                msg_placeholder.error(f'❌ Article "{title.strip()}" already exists!')
-                            else:
-                                module_item["articles"].append({"title": title.strip(), "duration": int(duration)})
-                                msg_placeholder.success(f'✅ Article "{title.strip()}" ({duration} min) has been successfully added!')
-                                added_any = True
+                        for line in article_input.splitlines():
+                            match = re.match(r"(.+?)\s+(\d+)$", line.strip())
+                            if match:
+                                title, duration = match.groups()
+                                if any(a['title'].lower() == title.strip().lower() for a in module_item["articles"]):
+                                    msg_placeholder.error(f'❌ Article "{title.strip()}" already exists!')
+                                else:
+                                    module_item["articles"].append({"title": title.strip(), "duration": int(duration)})
+                                    msg_placeholder.success(f'✅ Article "{title.strip()}" ({duration} min) added!')
+                                    added_any = True
 
-                            time.sleep(3)
-                            msg_placeholder.empty()
+                                time.sleep(2)
+                                msg_placeholder.empty()
 
-                    if not added_any and not module_item["articles"]:
-                        msg_placeholder.warning("No valid articles were added.")
+                        if not added_any and not module_item["articles"]:
+                            msg_placeholder.warning("No valid articles were added.")
 
+# ========== MAIN CONTENT ==========
 # --- Step 3: Generate Schedule ---
 st.header("3. Generate Schedule")
-generate = st.button("📅 Generate")
+generate = st.button("📅 Generate Schedule")
 
 if generate:
     all_tasks = []
@@ -107,7 +109,7 @@ if generate:
     for day, tasks in schedule.items():
         total_minutes = sum(t["duration"] for t in tasks)
         total_hours = total_minutes / 60
-        expander_title = f"📅 **{day.strftime('%A, %d %B %Y')}** ({total_minutes} min (~{total_hours:.1f} hr))" if tasks else f"📅 **{day.strftime('%A, %d %B %Y')}** (0 min)"
+        expander_title = f"📅 **{day.strftime('%A, %d %B %Y')}** ({total_minutes} min ~{total_hours:.1f} hr)" if tasks else f"📅 **{day.strftime('%A, %d %B %Y')}** (0 min)"
         with st.expander(expander_title):
             if tasks:
                 for t in tasks:
@@ -128,7 +130,7 @@ if st.session_state.schedule:
                 "Module": t["module"],
                 "Article": t["title"],
                 "Duration (min)": t["duration"],
-                "Total Duration (min/day)": total_minutes_day,  
+                "Total Duration (min/day)": total_minutes_day,
                 "Status (✅)": "☐"
             })
         if not tasks:
@@ -177,19 +179,19 @@ if st.session_state.schedule:
             current_row += 1
         end_row = current_row
 
-        merge_column_in_rows(ws, "A", start_row, end_row)  
-        merge_column(ws, "B", start_row, end_row)          
-        merge_column(ws, "C", start_row, end_row)          
-        merge_column_in_rows(ws, "F", start_row, end_row)  
+        merge_column_in_rows(ws, "A", start_row, end_row)
+        merge_column(ws, "B", start_row, end_row)
+        merge_column(ws, "C", start_row, end_row)
+        merge_column_in_rows(ws, "F", start_row, end_row)
 
         current_row += 1
 
-        # Apply border + alignment + wrap_text for ALL rows (header + data)
+    # Apply border + alignment + wrap_text
     for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
         for cell in row:
             cell.border = thin_border
             col_letter = get_column_letter(cell.column)
-            if col_letter == "D" and cell.row != 1:  
+            if col_letter == "D" and cell.row != 1:
                 cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
             else:
                 cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -204,5 +206,3 @@ if st.session_state.schedule:
         file_name="study_schedule.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
-
