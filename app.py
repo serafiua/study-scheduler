@@ -155,7 +155,7 @@ with tab1:
                     })
 
         total_days = (end_date - start_date).days + 1
-        minutes_per_day = 5.5 * 60
+        minutes_per_day = 2 * 60
         schedule = {start_date + datetime.timedelta(days=i): [] for i in range(total_days)}
 
         current_day = start_date
@@ -314,6 +314,7 @@ with tab3:
 
     else:
         st.info("ℹ️ Generate schedule first in the sidebar.")
+
 
 
 
