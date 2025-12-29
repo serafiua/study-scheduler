@@ -10,8 +10,11 @@ from openpyxl.utils import get_column_letter
 
 st.set_page_config(page_title="Study Scheduler", layout="wide")
 
+hours_per_day = 4.5  
+minutes_per_day = hours_per_day * 60
+
 st.title("📚 Study Scheduler")
-st.write("Organize your study tasks efficiently (~6h/day).")
+st.write(f"Organize your study tasks efficiently (~{hours_per_day:g}h/day).")
 
 # --- Step 0: Initialize session state ---
 if "classes" not in st.session_state:
@@ -155,7 +158,6 @@ with tab1:
                     })
 
         total_days = (end_date - start_date).days + 1
-        minutes_per_day = 4.5 * 60
         schedule = {start_date + datetime.timedelta(days=i): [] for i in range(total_days)}
 
         current_day = start_date
@@ -314,6 +316,7 @@ with tab3:
 
     else:
         st.info("ℹ️ Generate schedule first in the sidebar.")
+
 
 
 
