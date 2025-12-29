@@ -10,7 +10,7 @@ from openpyxl.utils import get_column_letter
 
 st.set_page_config(page_title="Study Scheduler", layout="wide")
 
-hours_per_day = 4.5  
+hours_per_day = 3.5
 minutes_per_day = hours_per_day * 60
 
 st.title("📚 Study Scheduler")
@@ -316,6 +316,7 @@ with tab3:
 
     else:
         st.info("ℹ️ Generate schedule first in the sidebar.")
+
 
 
 
