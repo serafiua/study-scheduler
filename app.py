@@ -497,7 +497,7 @@ with tab2:
 
         st.code(markdown_text, language="markdown")
     else:
-        st.info("👈 Generate schedule dulu bro.")
+        st.info("👈 Generate schedule dulu yaa.")
 
 # Excel
 with tab3:
@@ -598,10 +598,18 @@ with tab3:
             st.warning("Jadwal kosong atau belum digenerate.")
 
     else:
-        st.info("👈 Generate schedule dulu bro.")
+        st.info("👈 Generate schedule dulu yaa.")
 
 # --- AUTO DISMISS SUCCESS NOTIFICATION ---
 if st.session_state.notification and st.session_state.notification["type"] == "success":
     time.sleep(3)
     notif_placeholder.empty()
     st.session_state.notification = None
+
+# --- FOOTER / WATERMARK ---
+st.markdown("---")
+st.markdown("""
+    <div style="text-align: center; color: #6c757d; padding: 10px;">
+        <small>Created with love by <b>serafiua</b> | Powered by Streamlit</small>
+    </div>
+""", unsafe_allow_html=True)
