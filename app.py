@@ -331,7 +331,7 @@ with st.sidebar:
             # Tombol Hapus Kelas
             if st.button(f"🗑️ Delete Class", key=f"del_class_{class_idx}"):
                 st.session_state.classes.pop(class_idx)
-                st.session_state.schedule = {} # Reset schedule saat kelas dihapus
+                st.session_state.schedule = {} 
                 st.rerun()
 
             st.markdown("#### Modules")
@@ -503,7 +503,7 @@ with tab2:
 
         st.code(markdown_text, language="markdown")
     else:
-        st.info("👈 Generate schedule dulu bro.")
+        st.info("👈 Generate schedule duluu.")
 
 # Excel
 with tab3:
@@ -604,7 +604,7 @@ with tab3:
             st.warning("Jadwal kosong atau belum digenerate.")
 
     else:
-        st.info("👈 Generate schedule dulu bro.")
+        st.info("👈 Generate schedule duluu.")
 
 # --- FOOTER / WATERMARK ---
 st.markdown("---")
@@ -613,3 +613,4 @@ st.markdown("""
         <small>Created by <b>serafiua</b> | Powered by Streamlit</small>
     </div>
 """, unsafe_allow_html=True)
+
