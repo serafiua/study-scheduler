@@ -64,17 +64,6 @@ st.markdown("""
         outline: none !important;
     }
 
-    /* --- RADIO BUTTON --- */
-    /* Target circle saat Active/Selected */
-    div[role="radiogroup"] div[aria-checked="true"] > div:first-child {
-        background-color: #2D3E50 !important;
-        border-color: #2D3E50 !important;
-    }
-    /* Warna titik tengah (inner dot) saat Active - dibuat putih */
-    div[role="radiogroup"] div[aria-checked="true"] > div:first-child > div {
-        background-color: white !important;
-    }
-
     /* --- TABS CUSTOMIZATION (DEFAULT / LIGHT MODE) --- */
     div[data-baseweb="tab-highlight"] {
         background-color: #2D3E50 !important;
@@ -121,19 +110,55 @@ st.markdown("""
             box-shadow: none !important;
             outline: none !important;
         }
-
-        /* Radio Button - Dark Mode */
-        div[role="radiogroup"] div[aria-checked="true"] > div:first-child {
-            background-color: #E2E8F0 !important;
-            border-color: #E2E8F0 !important;
-        }
-        /* Inner dot color di Dark Mode - dibuat gelap biar kontras */
-        div[role="radiogroup"] div[aria-checked="true"] > div:first-child > div {
-            background-color: #1E1E1E !important; 
-        }
     }
     </style>
 """, unsafe_allow_html=True)
+
+# --- Helper Function: Custom Toast ---
+def show_custom_toast(message, type="error", duration=5):
+    unique_id = int(time.time() * 1000)
+    
+    if type == "error":
+        bg_color = "#FFE9E9" 
+        text_color = "#991B1B" 
+        icon = "⚠️"
+    else:
+        bg_color = "#E8F9EE" 
+        text_color = "#065F46" 
+        icon = "✅"
+    
+    # CSS Animation for fade out
+    html_code = f"""
+    <style>
+        @keyframes slideInDown-{unique_id} {{
+            0% {{ opacity: 0; top: -50px; }}
+            10% {{ opacity: 1; top: 90px; }} 
+            90% {{ opacity: 1; top: 90px; }}
+            100% {{ opacity: 0; top: -50px; pointer-events: none; }}
+        }}
+        .custom-toast-{unique_id} {{
+            position: fixed;
+            right: 20px;
+            top: 90px;
+            background-color: {bg_color};
+            color: {text_color};
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            z-index: 999999;
+            font-family: 'Source Sans Pro', sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideInDown-{unique_id} {duration}s ease-in-out forwards;
+        }}
+    </style>
+    <div class="custom-toast-{unique_id}">
+        <span style="font-size: 1.5rem;">{icon}</span>
+        <div style="font-weight: 500;">{message}</div>
+    </div>
+    """
+    return html_code
 
 # --- Helper Function: Scraper  ---
 def scrape_dicoding_syllabus(url):
@@ -145,7 +170,6 @@ def scrape_dicoding_syllabus(url):
             "Referer": "https://www.dicoding.com/",
             "Upgrade-Insecure-Requests": "1"
         }
-        
         # 1. Ambil HTML dari Link
         response = requests.get(url, headers=headers)
         response.raise_for_status()
@@ -224,8 +248,6 @@ if "classes" not in st.session_state:
     st.session_state.classes = []
 if "schedule" not in st.session_state:
     st.session_state.schedule = {}
-if "notification" not in st.session_state:
-    st.session_state.notification = None
 
 # ========== SIDEBAR ==========
 with st.sidebar:
@@ -273,7 +295,7 @@ with st.sidebar:
                              st.warning(f"Kelas '{result['name']}' sudah ada di list.", icon="⚠️")
                         else:
                             st.session_state.classes.append(result)
-                            st.success(f"Berhasil! Menambahkan: {result['name']} ({len(result['modules'])} modules)", icon="✅")
+                            st.toast(f"Berhasil menambahkan: {result['name']}", icon="✅")
                             time.sleep(2)
                             st.rerun()
                     else:
@@ -291,7 +313,7 @@ with st.sidebar:
                     st.warning(f"Kelas '{class_input.strip()}' sudah ada di list.", icon="⚠️")
                 else:
                     st.session_state.classes.append({"name": class_input.strip(), "modules": []})
-                    st.success(f"Berhasil! Menambahkan: {class_input.strip()}", icon="✅")
+                    st.toast(f"Berhasil menambahkan: {class_input.strip()}", icon="✅")
                     time.sleep(2)
                     st.rerun()
             else:
@@ -376,7 +398,6 @@ with st.sidebar:
     )
     
     if st.button("📅 Generate Schedule", type="primary", disabled=not can_generate, use_container_width=True):
-        st.session_state.notification = None
         all_tasks = []
         for class_item in st.session_state.classes:
             for module_item in class_item["modules"]:
@@ -418,15 +439,10 @@ with st.sidebar:
                     used_minutes = 0
         
         if task_idx < total_tasks:
-            st.session_state.notification = {
-                "type": "error",
-                "message": "##### Waktu Gak Cukup Nih!\nAda materi yang **tidak terjadwal** karena durasi materi melebihi batas waktu. \n\n**Solusi:**\n- Perpanjang Tanggal Akhir (End Date)\n- Atau tambah Target Jam Belajar per hari."
-            }
+            msg = "<b>Waktunya gak cukup nih.</b> <br><span style='font-size: 0.9em; opacity: 0.9;'>Coba perpanjang End Date atau tambah durasi belajar, lalu generate ulang.</span>"
+            st.markdown(show_custom_toast(msg, type="error", duration=10), unsafe_allow_html=True)
         else:
-            st.session_state.notification = {
-                "type": "success",
-                "message": "###### ✅ Jadwal Berhasil Dibuat!"
-            }
+            st.markdown(show_custom_toast("Jadwal Berhasil Dibuat!", type="success", duration=5), unsafe_allow_html=True)
             st.balloons()
 
         st.session_state.schedule = schedule
@@ -435,16 +451,6 @@ with st.sidebar:
 # ========== MAIN CONTENT ==========
 st.title("Studico.")
 st.markdown(f"##### Set your Dicoding study schedule automatically.")
-
-# --- DISPLAY NOTIFICATION  ---
-notif_placeholder = st.empty()
-
-if st.session_state.notification:
-    notif = st.session_state.notification
-    if notif["type"] == "error":
-        notif_placeholder.error(notif["message"], icon="⚠️")
-    elif notif["type"] == "success":
-        notif_placeholder.success(notif["message"])
 
 tab1, tab2, tab3 = st.tabs(["🗓️ Preview", "📝 Markdown", "📥 Excel"])
 
@@ -497,7 +503,7 @@ with tab2:
 
         st.code(markdown_text, language="markdown")
     else:
-        st.info("👈 Generate schedule dulu yaa.")
+        st.info("👈 Generate schedule dulu bro.")
 
 # Excel
 with tab3:
@@ -598,18 +604,12 @@ with tab3:
             st.warning("Jadwal kosong atau belum digenerate.")
 
     else:
-        st.info("👈 Generate schedule dulu yaa.")
-
-# --- AUTO DISMISS SUCCESS NOTIFICATION ---
-if st.session_state.notification and st.session_state.notification["type"] == "success":
-    time.sleep(3)
-    notif_placeholder.empty()
-    st.session_state.notification = None
+        st.info("👈 Generate schedule dulu bro.")
 
 # --- FOOTER / WATERMARK ---
 st.markdown("---")
 st.markdown("""
     <div style="text-align: center; color: #6c757d; padding: 10px;">
-        <small>Created with love by <b>serafiua</b> | Powered by Streamlit</small>
+        <small>Created by <b>serafiua</b> | Powered by Streamlit</small>
     </div>
 """, unsafe_allow_html=True)
