@@ -295,7 +295,7 @@ with st.sidebar:
                              st.warning(f"Kelas '{result['name']}' sudah ada di list.", icon="⚠️")
                         else:
                             st.session_state.classes.append(result)
-                            st.toast(f"Berhasil menambahkan: {result['name']}", icon="✅")
+                            st.success(f"Berhasil menambahkan kelas {result['name']}", icon="✅")
                             time.sleep(2)
                             st.rerun()
                     else:
@@ -313,7 +313,7 @@ with st.sidebar:
                     st.warning(f"Kelas '{class_input.strip()}' sudah ada di list.", icon="⚠️")
                 else:
                     st.session_state.classes.append({"name": class_input.strip(), "modules": []})
-                    st.toast(f"Berhasil menambahkan: {class_input.strip()}", icon="✅")
+                    st.success(f"Berhasil menambahkan kelas {class_input.strip()}", icon="✅")
                     time.sleep(2)
                     st.rerun()
             else:
@@ -331,7 +331,6 @@ with st.sidebar:
             # Tombol Hapus Kelas
             if st.button(f"🗑️ Delete Class", key=f"del_class_{class_idx}"):
                 st.session_state.classes.pop(class_idx)
-                st.session_state.schedule = {} 
                 st.rerun()
 
             st.markdown("#### Modules")
@@ -340,52 +339,79 @@ with st.sidebar:
             with st.form(key=f"add_mod_form_{class_idx}"):
                 c1, c2 = st.columns([3, 1])
                 with c1:
-                    new_mod_name = st.text_input("Enter Module Name", placeholder="Modul X")
+                    new_mod_name = st.text_input("Enter Module Name", placeholder="e.g., Persiapan Belajar")
                 with c2:
                     st.text("") # spacer
                     st.text("") 
                     add_mod_btn = st.form_submit_button("➕ Add")
                 
                 if add_mod_btn and new_mod_name:
-                    class_item["modules"].append({"name": new_mod_name, "articles": []})
-                    st.rerun()
+                    # CEK DUPLIKAT MODUL
+                    if any(m['name'].strip().lower() == new_mod_name.strip().lower() for m in class_item["modules"]):
+                        st.warning(f"Modul '{new_mod_name}' sudah ada di list.", icon="⚠️")
+                    else:
+                        class_item["modules"].append({"name": new_mod_name, "articles": []})
+                        st.success(f"Berhasil menambahkan modul {new_mod_name}", icon="✅")
+                        time.sleep(1)
+                        st.rerun()
 
             # Loop Modules
             for module_idx, module_item in enumerate(class_item["modules"]):
-                st.markdown(f"**📂 {module_item['name']}**")
-                
-                # Input artikel manual (Bulk)
-                input_val = st.text_area(
-                    f"Edit/Add Articles (Format: Judul [spasi] Menit)",
-                    value="",
-                    placeholder="Pengenalan 5\nInstalasi Tools 15",
-                    key=f"area_{class_idx}_{module_idx}",
-                    height=68
-                )
-                
-                col_act1, col_act2 = st.columns(2)
-                with col_act1:
-                    if st.button("Add to List", key=f"btn_add_art_{class_idx}_{module_idx}"):
+                with st.expander(f"📂 {module_item['name']}", expanded=False):
+                    # Tombol Delete Module
+                    if st.button(f"🗑️ Delete Module", key=f"del_mod_{class_idx}_{module_idx}"):
+                        class_item["modules"].pop(module_idx)
+                        st.rerun()
+
+                    # Input artikel manual (Bulk)
+                    input_val = st.text_area(
+                        f"Add Articles (Format: `Judul [spasi] Menit`)",
+                        value="",
+                        placeholder="Pengantar 5\nInstalasi Tools 15",
+                        key=f"area_{class_idx}_{module_idx}",
+                        height=68
+                    )
+                    
+                    col_act1, col_act2 = st.columns(2)
+                    with col_act1:
+                        add_clicked = st.button("Add to List", key=f"btn_add_art_{class_idx}_{module_idx}")
+                    
+                    # Logic Add Article 
+                    if add_clicked:
+                        lines_to_add = []
+                        error_lines = []
+                        
                         for line in input_val.splitlines():
+                            if not line.strip(): continue 
+                            
                             match = re.match(r"(.+?)\s+(\d+)$", line.strip())
                             if match:
                                 t, d = match.groups()
-                                module_item["articles"].append({"title": t.strip(), "duration": int(d)})
-                        st.rerun()
-                
-                # List Artikel yang sudah ada
-                if module_item["articles"]:
-                    for art_idx, art in enumerate(module_item["articles"]):
-                        c_text, c_del = st.columns([4, 1])
-                        with c_text:
-                            st.caption(f"• {art['title']} ({art['duration']}m)")
-                        with c_del:
-                            if st.button("❌", key=f"del_art_{class_idx}_{module_idx}_{art_idx}"):
-                                module_item["articles"].pop(art_idx)
-                                st.rerun()
-                else:
-                    st.caption("*Belum ada artikel*")
-                st.divider()
+                                lines_to_add.append({"title": t.strip(), "duration": int(d)})
+                            else:
+                                error_lines.append(line)
+                        
+                        if error_lines:
+                            # Tampilkan error jika ada format salah 
+                            st.error(f"**Format salah: `{', '.join(error_lines[:3])}{'...' if len(error_lines)>3 else ''}`.** \nPastikan formatnya: `Judul [spasi] Menit` (contoh: `Pengenalan Dasar 10`)", icon="🚫")
+                        elif lines_to_add:
+                            module_item["articles"].extend(lines_to_add)
+                            st.success("Berhasil menambahkan artikel!", icon="✅")
+                            time.sleep(1)
+                            st.rerun()
+                    
+                    # List Artikel yang sudah ada
+                    if module_item["articles"]:
+                        for art_idx, art in enumerate(module_item["articles"]):
+                            c_text, c_del = st.columns([4, 1])
+                            with c_text:
+                                st.caption(f"• {art['title']} ({art['duration']}m)")
+                            with c_del:
+                                if st.button("❌", key=f"del_art_{class_idx}_{module_idx}_{art_idx}"):
+                                    module_item["articles"].pop(art_idx)
+                                    st.rerun()
+                    else:
+                        st.caption("*Belum ada artikel*")
 
     # --- Step 3: Generate Schedule ---
     st.markdown("---")
@@ -443,7 +469,6 @@ with st.sidebar:
             st.markdown(show_custom_toast(msg, type="error", duration=10), unsafe_allow_html=True)
         else:
             st.markdown(show_custom_toast("Jadwal Berhasil Dibuat!", type="success", duration=5), unsafe_allow_html=True)
-            st.balloons()
 
         st.session_state.schedule = schedule
 
@@ -503,7 +528,7 @@ with tab2:
 
         st.code(markdown_text, language="markdown")
     else:
-        st.info("👈 Generate schedule duluu.")
+        st.info("👈 Generate schedule dulu yaa.")
 
 # Excel
 with tab3:
@@ -604,7 +629,7 @@ with tab3:
             st.warning("Jadwal kosong atau belum digenerate.")
 
     else:
-        st.info("👈 Generate schedule duluu.")
+        st.info("👈 Generate schedule dulu yaa.")
 
 # --- FOOTER / WATERMARK ---
 st.markdown("---")
@@ -613,4 +638,3 @@ st.markdown("""
         <small>Created by <b>serafiua</b> | Powered by Streamlit</small>
     </div>
 """, unsafe_allow_html=True)
-
