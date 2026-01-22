@@ -60,7 +60,7 @@ st.markdown("""
         background-color: #2D3E50 !important;
         color: white !important;
         border-color: #2D3E50 !important;
-        box-shadow: none !important; /* Hilangkan glow oren default */
+        box-shadow: none !important;
         outline: none !important;
     }
 
@@ -471,6 +471,12 @@ with st.sidebar:
             st.markdown(show_custom_toast("Jadwal Berhasil Dibuat!", type="success", duration=5), unsafe_allow_html=True)
 
         st.session_state.schedule = schedule
+
+    st.markdown("---")
+    
+    if st.button("🔄 Reset Schedule", use_container_width=True):
+        st.session_state.schedule = {}
+        st.rerun()
 
 
 # ========== MAIN CONTENT ==========
