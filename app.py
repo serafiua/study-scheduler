@@ -4,7 +4,6 @@ import re
 import time
 import math
 import pandas as pd
-import requests
 from bs4 import BeautifulSoup
 from io import BytesIO
 from openpyxl import load_workbook
@@ -160,22 +159,11 @@ def show_custom_toast(message, type="error", duration=5):
     """
     return html_code
 
-# --- Helper Function: Scraper  ---
-def scrape_dicoding_syllabus(url):
+# --- Helper Function: Parser (From HTML Content) ---
+def parse_dicoding_html(html_content):
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9,id;q=0.8",
-            "Referer": "https://www.dicoding.com/",
-            "Upgrade-Insecure-Requests": "1"
-        }
-        # 1. Ambil HTML dari Link
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        
-        # 2. Proses HTML 
-        soup = BeautifulSoup(response.text, 'html.parser')
+        # Proses HTML langsung dari string/file
+        soup = BeautifulSoup(html_content, 'html.parser')
         
         # Ambil Nama Kelas 
         class_name_tag = soup.find('h3', class_="mb-3 font-weight-bold")
@@ -186,12 +174,12 @@ def scrape_dicoding_syllabus(url):
         
         modules = []
         
-        # --- LOGIC USER ---
+        # --- LOGIC PARSING ---
         # Loop tiap syllabus-category (modul)
         syllabus_categories = soup.select("div.syllabus-category")
         
         if not syllabus_categories:
-            return None, "Gagal menemukan elemen silabus. Pastikan link publik dan benar."
+            return None, "Tidak menemukan elemen silabus. Pastikan file HTML yang diupload benar (Terdapat halaman silabus)."
 
         for cat in syllabus_categories:
             modul_title_tag = cat.find("h5", class_="syllabus-category__title")
@@ -236,12 +224,12 @@ def scrape_dicoding_syllabus(url):
                 modules.append({"name": modul_title, "articles": current_articles})
 
         if not modules:
-            return None, "Link bisa diakses tapi tidak ditemukan modul/artikel. Cek apakah silabus kosong?"
+            return None, "File HTML terbaca, tapi tidak ada modul/artikel yang ditemukan."
             
         return {"name": class_name, "modules": modules}, None
 
     except Exception as e:
-        return None, f"Error: {str(e)}"
+        return None, f"Error parsing file: {str(e)}"
 
 # --- Step 0: Initialize session state ---
 if "classes" not in st.session_state:
@@ -277,17 +265,26 @@ with st.sidebar:
     st.markdown("---")
     st.write("## 2. Add Materials")
     
-    input_method = st.radio("Metode Input:", ["🔗 Auto Scrape (URL)", "✍️ Manual Input"])
+    input_method = st.radio("Metode Input:", ["📂 Upload HTML File", "✍️ Manual Input"])
     
-    # === METHOD A: AUTO SCRAPE ===
-    if input_method == "🔗 Auto Scrape (URL)":
-        st.markdown("Pastikan link yang dimasukkan adalah halaman **Silabus** atau **Detail Kelas** Dicoding yang publik.")
-        url_input = st.text_input("Dicoding Class URL", placeholder="https://www.dicoding.com/academies/...")
+    # === METHOD A: UPLOAD HTML FILE ===
+    if input_method == "📂 Upload HTML File":
+        st.markdown("""
+        **Cara Pakai:**
+        1. Buka halaman **Detail Kelas** Dicoding di browser.
+        *(Contoh: [Memulai Pemrograman dengan Python](https://www.dicoding.com/academies/86))*
+        2. **Save As** (Ctrl+S) halaman tersebut sebagai `.html`.
+        3. Upload filenya di sini.
+        """)
         
-        if st.button("🚀 Scrape & Add", type="primary", use_container_width=True):
-            if url_input:
-                with st.spinner("Sedang membaca silabus..."):
-                    result, error = scrape_dicoding_syllabus(url_input)
+        uploaded_file = st.file_uploader("Upload File Silabus (.html)", type=["html", "htm"])
+        
+        if st.button("🚀 Process File", type="primary", use_container_width=True):
+            if uploaded_file is not None:
+                with st.spinner("Sedang membaca file..."):
+                    # Baca konten file
+                    html_content = uploaded_file.getvalue().decode("utf-8")
+                    result, error = parse_dicoding_html(html_content)
                     
                     if result:
                         # Cek duplikat kelas
@@ -299,9 +296,9 @@ with st.sidebar:
                             time.sleep(2)
                             st.rerun()
                     else:
-                        st.error(f"Gagal scraping: {error}", icon="❌")
+                        st.error(f"Gagal memproses file: {error}", icon="❌")
             else:
-                st.warning("Masukkan URL dulu yaa.", icon="⚠️")
+                st.warning("Upload file HTML dulu yaa.", icon="⚠️")
 
     # === METHOD B: MANUAL INPUT ===
     else:
@@ -323,7 +320,7 @@ with st.sidebar:
     st.write("### 📚 Class List")
     
     if not st.session_state.classes:
-        st.caption("*Belum ada kelas. Tambahkan via URL atau Manual.*")
+        st.caption("*Belum ada kelas. Tambahkan file HTML atau Manual Input.*")
 
     # Loop classes untuk manage Modules/Articles
     for class_idx, class_item in enumerate(st.session_state.classes):
@@ -474,8 +471,10 @@ with st.sidebar:
 
     st.markdown("---")
     
-    if st.button("🔄 Reset Schedule", use_container_width=True):
+    # Tombol Reset sekarang menghapus Schedule DAN Classes
+    if st.button("🔄 Reset All Data", use_container_width=True):
         st.session_state.schedule = {}
+        st.session_state.classes = []
         st.rerun()
 
 
@@ -517,20 +516,32 @@ with tab1:
 # Markdown
 with tab2:
     if st.session_state.schedule:
-        st.subheader("Copy-Paste ke Notion")
-        st.caption("Copy text di bawah, lalu paste di Notion untuk membuat to-do-list.")
-        
         markdown_text = ""
         
         for day, tasks in st.session_state.schedule.items():
             total_minutes = sum(t["duration"] for t in tasks)
             if tasks: 
                 date_str = day.strftime('%A, %d %B %Y')
-                markdown_text += f"### 📅 {date_str}\n"
-                markdown_text += f"**Target:** {total_minutes} min\n\n"
+                markdown_text += f"- 📅 **{date_str}** (Target: {total_minutes} min)\n"
+                
                 for t in tasks:
-                    markdown_text += f"- [ ] **{t['class']}** | *{t['module']}* | {t['title']} ({t['duration']}m)\n"
+                    markdown_text += f"    - [ ] **{t['class']}** | *{t['module']}* | {t['title']} ({t['duration']}m)\n"
+                
                 markdown_text += "\n"
+
+        col1, col2 = st.columns([5, 2])
+        with col1:
+            st.subheader("Copy-Paste ke Notion")
+            st.caption("Copy text di bawah, lalu paste di Notion. Atau download file markdown melalui tombol di samping lalu impor ke Notion.")
+        
+        with col2:
+            st.download_button(
+                label="📥 Download Markdown",
+                data=markdown_text,
+                file_name=f"Studico_{start_date}.md",
+                mime="text/markdown",
+                type="primary"
+            )
 
         st.code(markdown_text, language="markdown")
     else:
